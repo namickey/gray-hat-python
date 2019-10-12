@@ -16,6 +16,13 @@ port = 0
 
 def usage():
     print("BHP Net Tool")
+    print("\nfor server")
+    print("python netcat.py -l -p 9999 -c")
+    print("python netcat.py -l -p 9999 -c -u some.txt")
+    print("\nfor client")
+    print("python netcat.py -t localhost -p 9999")
+    print("cat some.txt | python netcat.py -t localhost -p 9999")
+    print("\n")
     sys.exit(0)
 
 def main():
@@ -54,7 +61,6 @@ def main():
             assert False, "Unhandled Option"
     if not listen and len(target) and port > 0:
         buffer = sys.stdin.read()
-        print(buffer)
         client_sender(buffer)
     if listen:
         server_loop()
@@ -64,24 +70,19 @@ def client_sender(buffer):
     try:
         client.connect((target, port))
         if len(buffer):
-            print("send1")
             client.send(buffer.encode())
-        time.sleep(1)
         while True:
             recv_len = 1
             response = ""
             while recv_len:
-                print("recv1")
                 data = client.recv(4096)
                 recv_len = len(data)
                 response += data.decode()
                 if recv_len < 4096:
                     break
-            #print(response)
-            buffer = input()
-            print("raw_input:" + buffer)
+            print(response)
+            buffer = input("<BHP> ")
             buffer += "\n"
-            print("send2")
             client.send(buffer.encode())
             if "exit\n" == buffer:
                 break
@@ -109,10 +110,10 @@ def run_command(command):
     try:
         print("command:" + command)
         output = subprocess.check_output(command, stderr=subprocess.STDOUT, shell=True)
-        print("output:" + output.decode())
     except Exception as e:
         print(e)
-        output = "Failed to execute command.\r\n"
+        output = "Failed to execute command.\r\n".encode()
+    print("output:" + output.decode())
     return output
 
 def client_handler(client_socket):
@@ -123,7 +124,6 @@ def client_handler(client_socket):
     if len(upload_destination):
         file_buffer = "".encode()
         while True:
-            print("recv9")
             data = client_socket.recv(1024)
             print("data len:" + str(len(data)))
             file_buffer += data
@@ -133,32 +133,25 @@ def client_handler(client_socket):
             file_descriptor = open(upload_destination, "wb")
             file_descriptor.write(file_buffer)
             file_descriptor.close()
-            print("send9")
             client_socket.send(("Successfully saved file to %s\r\n" % upload_destination).encode())
         except:
-            print("send8")
             client_socket.send(("Failed to save file to %s\r\n" % upload_destination).encode())
         upload_destination = ""
     if len(execute):
         output = run_command(execute)
         client_socket.send(output)
     if command:
-        prompt = "<BHP:#> "
-        print("send7")
+        prompt = "\n"
         client_socket.send(prompt.encode())
         while True:
             cmd_buffer = ""
             while "\n" not in cmd_buffer:
                 time.sleep(1)
-                print("recv8")
                 cmd_buffer += client_socket.recv(1024).decode()
-                print("cmd_buffer:" + cmd_buffer)
             if "exit\n" == cmd_buffer:
                 break
             response = run_command(cmd_buffer).decode()
             response += prompt
-            print("send6")
             client_socket.send(response.encode())
-    #client_socket.close()
 
 main()
